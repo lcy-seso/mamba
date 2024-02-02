@@ -25,7 +25,7 @@ class MambaEvalWrapper(HFLM):
         self.vocab_size = self.tokenizer.vocab_size
         self._batch_size = int(batch_size) if batch_size is not None else 64
         self._max_length = max_length
-        self._device = torch.device(device)
+        self._device = torch.device(device'''  ''')
 
     @property
     def batch_size(self):

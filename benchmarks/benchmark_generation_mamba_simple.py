@@ -1,5 +1,7 @@
 # Copyright (c) 2023, Tri Dao, Albert Gu.
 
+import pdb
+
 import argparse
 import time
 import json
@@ -15,7 +17,8 @@ from mamba_ssm.models.mixer_seq_simple import MambaLMHeadModel
 
 
 parser = argparse.ArgumentParser(description="Generation benchmarking")
-parser.add_argument("--model-name", type=str, default="state-spaces/mamba-130m")
+parser.add_argument("--model-name", type=str,
+                    default="state-spaces/mamba-130m")
 parser.add_argument("--prompt", type=str, default=None)
 parser.add_argument("--promptlen", type=int, default=100)
 parser.add_argument("--genlen", type=int, default=100)
@@ -33,18 +36,22 @@ dtype = torch.float16
 
 print(f"Loading model {args.model_name}")
 is_mamba = args.model_name.startswith("state-spaces/mamba-")
+pdb.set_trace()
 if is_mamba:
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b")
-    model = MambaLMHeadModel.from_pretrained(args.model_name, device=device, dtype=dtype)
+    model = MambaLMHeadModel.from_pretrained(
+        args.model_name, device=device, dtype=dtype)
 else:
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    model = AutoModelForCausalLM.from_pretrained(args.model_name, device_map={"": device}, torch_dtype=dtype)
-model.eval()
-print(f"Number of parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
+    model = AutoModelForCausalLM.from_pretrained(
+        args.model_name, device_map={"": device}, torch_dtype=dtype)
+print(
+    f"Number of parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
 
 torch.random.manual_seed(0)
 if args.prompt is None:
-    input_ids = torch.randint(1, 1000, (args.batch, args.promptlen), dtype=torch.long, device="cuda")
+    input_ids = torch.randint(
+        1, 1000, (args.batch, args.promptlen), dtype=torch.long, device="cuda")
     attn_mask = torch.ones_like(input_ids, dtype=torch.long, device="cuda")
 else:
     tokens = tokenizer(args.prompt, return_tensors="pt")
@@ -53,7 +60,7 @@ else:
 max_length = input_ids.shape[1] + args.genlen
 
 if is_mamba:
-    fn = lambda: model.generate(
+    def fn(): return model.generate(
         input_ids=input_ids,
         max_length=max_length,
         cg=True,
@@ -67,7 +74,7 @@ if is_mamba:
         repetition_penalty=args.repetition_penalty,
     )
 else:
-    fn = lambda: model.generate(
+    def fn(): return model.generate(
         input_ids=input_ids,
         attention_mask=attn_mask,
         max_length=max_length,
@@ -88,5 +95,6 @@ start = time.time()
 for _ in range(repeats):
     fn()
 torch.cuda.synchronize()
-print(f"Prompt length: {len(input_ids[0])}, generation length: {len(out.sequences[0]) - len(input_ids[0])}")
+print(
+    f"Prompt length: {len(input_ids[0])}, generation length: {len(out.sequences[0]) - len(input_ids[0])}")
 print(f"{args.model_name} prompt processing + decoding time: {(time.time() - start) / repeats * 1000:.0f}ms")
